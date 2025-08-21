@@ -40,17 +40,20 @@
         @click="openTestPlan(plan.id)"
       >
         <div class="card-header">
-          <h3 class="plan-title">{{ plan.title }}</h3>
+          <h3 class="plan-id">{{ plan.id }}</h3>
           <div class="plan-actions">
             <button class="action-btn" @click.stop="showOptions(plan.id)">
               ⋯
             </button>
           </div>
         </div>
-        
-        <p class="plan-description">{{ plan.description }}</p>
+
         
         <div class="plan-meta">
+          <div class="meta-item">
+            <span class="meta-label">Description:</span>
+            <span class="meta-value">{{ plan.description }}</span>
+          </div>
           <div class="meta-item">
             <span class="meta-label">Test Cases:</span>
             <span class="meta-value">{{ plan.testCaseCount }}</span>
@@ -85,12 +88,12 @@
         
         <form @submit.prevent="createTestPlan">
           <div class="form-group">
-            <label class="form-label">Title</label>
+            <label class="form-label">GM Ticket ID</label>
             <input 
               v-model="newPlan.title" 
               type="text" 
               class="form-input" 
-              placeholder="Enter test plan title"
+              placeholder="Enter test plan ticket ID"
               required
             />
           </div>
@@ -145,8 +148,8 @@ export default {
       // Sample data - replace with API calls later
       testPlans: [
         {
-          id: 1,
-          title: 'User Authentication Flow',
+          id: 'GM-241929',
+          title: 'As an Outbound supervisor, I should be able to customize columns in the new outbound listing page as latest UX designs',
           description: 'Comprehensive test plan for user login, registration, and password reset functionality.',
           testCaseCount: 15,
           createdAt: '2024-01-15',
@@ -372,10 +375,16 @@ export default {
   gap: 8px;
   margin-bottom: 16px;
 }
-
+.plan-description-container {
+  display: flex;
+  /* gap: 10px; */
+  justify-content: space-between;
+  align-items: center;
+}
 .meta-item {
   display: flex;
-  justify-content: space-between;
+  gap: 10px;
+  /* justify-content: space-between; */
   align-items: center;
 }
 
