@@ -12,7 +12,6 @@
             <span class="status-badge" :class="testPlan.status">
               {{ testPlan.status }}
             </span>
-            <span class="created-date">Created {{ formatDate(testPlan.createdAt) }}</span>
           </div>
         </div>
       </div>
@@ -28,8 +27,7 @@
 
     <!-- Description Section -->
     <div class="description-section">
-      <h3>Description</h3>
-      <p>{{ testPlan.description }}</p>
+      <p><strong>Description :</strong> {{ testPlan.description }}</p>
     </div>
 
     <!-- Tags section removed -->
@@ -37,7 +35,22 @@
     <!-- Test Cases Section -->
     <div class="test-cases-section">
       <div class="section-header">
-        <h3>Test Cases ({{ testCases.length }})</h3>
+        <div class="header-left">
+          <div class="select-all-section">
+            <label class="checkbox-label">
+              <input 
+                type="checkbox" 
+                v-model="selectAll"
+                @change="toggleSelectAll"
+                class="checkbox-input"
+              />
+            </label>
+            <span class="selected-count" v-if="selectedCases.length > 0">
+              ({{ selectedCases.length }} selected)
+            </span>
+          </div>
+          <h3>Test Cases ({{ testCases.length }})</h3>
+        </div>
         <div class="case-filters">
           <input 
             type="text" 
@@ -56,13 +69,23 @@
           class="test-case-card"
           :class="{ expanded: expandedCases.includes(testCase.id) }"
         >
-          <div class="case-header" @click="toggleCase(testCase.id)">
-            <div class="case-title">
+          <div class="case-header">
+            <div class="case-checkbox" @click.stop>
+              <label class="checkbox-label">
+                <input 
+                  type="checkbox" 
+                  v-model="selectedCases"
+                  :value="testCase.id"
+                  class="checkbox-input"
+                />
+              </label>
+            </div>
+            <div class="case-title" @click="toggleCase(testCase.id)">
               <span class="case-number">TC-{{ testCase.id }}</span>
               <h4>{{ testCase.summary }}</h4>
             </div>
             <div class="case-status">
-              <button class="expand-btn">
+              <button class="expand-btn" @click="toggleCase(testCase.id)">
                 {{ expandedCases.includes(testCase.id) ? '−' : '+' }}
               </button>
             </div>
@@ -71,21 +94,19 @@
           <!-- Expanded Case Details -->
           <div class="case-details" v-if="expandedCases.includes(testCase.id)">
             <div class="case-description">
-              <h5>Description</h5>
-              <p>{{ testCase.description }}</p>
+              <p><strong>Description :</strong> {{ testCase.description }}</p>
             </div>
 
             <div class="case-preconditions" v-if="testCase.preconditions">
-              <h5>Preconditions</h5>
-              <p>{{ testCase.preconditions }}</p>
+              <p><strong>Preconditions :</strong> {{ testCase.preconditions }}</p>
             </div>
 
             <div class="case-steps">
-              <h5>Test Steps</h5>
               <div class="steps-table">
                 <div class="table-header">
                   <div class="step-number">Step</div>
                   <div class="step-action">Action</div>
+                  <div class="step-input">Input</div>
                   <div class="step-expected">Expected Result</div>
                 </div>
                 <div 
@@ -95,6 +116,7 @@
                 >
                   <div class="step-number">{{ index + 1 }}</div>
                   <div class="step-action">{{ step.action }}</div>
+                  <div class="step-input">{{ step.input || '-' }}</div>
                   <div class="step-expected">{{ step.expectedResult }}</div>
                 </div>
               </div>
@@ -119,6 +141,17 @@
         <p>Add your first test case to get started</p>
         <button class="btn btn-primary" @click="showAddTestCaseModal = true">
           Add Test Case
+        </button>
+      </div>
+      
+      <!-- Export Button -->
+      <div class="export-section" v-if="testCases.length > 0">
+        <button 
+          class="btn btn-primary" 
+          @click="exportToCSV"
+
+        >
+          📄 Export CSV
         </button>
       </div>
     </div>
@@ -179,6 +212,12 @@
                   placeholder="Action to perform"
                 />
                 <input 
+                  v-model="step.input" 
+                  type="text" 
+                  class="form-input" 
+                  placeholder="Input data"
+                />
+                <input 
                   v-model="step.expectedResult" 
                   type="text" 
                   class="form-input" 
@@ -228,11 +267,13 @@ export default {
       searchQuery: '',
       expandedCases: [],
       showAddTestCaseModal: false,
+      selectedCases: [],
+      selectAll: false,
       newTestCase: {
         summary: '',
         description: '',
         preconditions: '',
-        steps: [{ action: '', expectedResult: '' }]
+        steps: [{ action: '', input: '', expectedResult: '' }]
       },
       // Sample data - replace with API calls
       testPlan: {
@@ -291,6 +332,13 @@ export default {
       )
     }
   },
+  watch: {
+    selectedCases(newVal) {
+      // Update select all checkbox state
+      const filteredIds = this.filteredTestCases.map(tc => tc.id)
+      this.selectAll = filteredIds.length > 0 && filteredIds.every(id => newVal.includes(id))
+    }
+  },
   methods: {
     formatDate(dateString) {
       return new Date(dateString).toLocaleDateString()
@@ -315,7 +363,7 @@ export default {
       }
     },
     addStep() {
-      this.newTestCase.steps.push({ action: '', expectedResult: '' })
+      this.newTestCase.steps.push({ action: '', input: '', expectedResult: '' })
     },
     removeStep(index) {
       this.newTestCase.steps.splice(index, 1)
@@ -336,8 +384,60 @@ export default {
         summary: '',
         description: '',
         preconditions: '',
-        steps: [{ action: '', expectedResult: '' }]
+        steps: [{ action: '', input: '', expectedResult: '' }]
       }
+    },
+    toggleSelectAll() {
+      if (this.selectAll) {
+        this.selectedCases = this.filteredTestCases.map(tc => tc.id)
+      } else {
+        this.selectedCases = []
+      }
+    },
+    exportToCSV() {
+      // If no test cases are selected, export all test cases
+      // If test cases are selected, export only the selected ones
+      const testCasesToExport = this.selectedCases.length === 0 
+        ? this.testCases 
+        : this.testCases.filter(tc => this.selectedCases.includes(tc.id))
+      
+      // Create CSV content with the specified headers
+      const headers = ['issueIndex', 'summary', 'description', 'stepGroup', 'tctStepId', 'Action', 'Input', 'Expected result', 'components', 'assigneeId', 'textCfValue', 'requirements', 'preconditions']
+      let csvContent = headers.join(',') + '\n'
+      
+      testCasesToExport.forEach(testCase => {
+        // For each test case, create a row for each step
+        testCase.steps.forEach((step, stepIndex) => {
+          const row = [
+            testCase.id, // issueIndex
+            stepIndex === 0 ? `"${testCase.summary}"` : '', // summary (only in first row)
+            stepIndex === 0 ? `"${testCase.description}"` : '', // description (only in first row)
+            '', // stepGroup (empty for now)
+            stepIndex + 1, // tctStepId (simple integer)
+            `"${step.action}"`, // Action
+            `"${step.input || ''}"`, // Input
+            `"${step.expectedResult}"`, // Expected result
+            '', // components (empty for now)
+            'USER-JIRA-ID', // assigneeId (user's Jira ID - to be replaced with actual user data)
+            '', // textCfValue (empty for now)
+            this.testPlan.id, // requirements (Jira Ticket ID)
+            stepIndex === 0 ? `"${testCase.preconditions || ''}"` : '' // preconditions (only in first row)
+          ].join(',')
+          
+          csvContent += row + '\n'
+        })
+      })
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `test-cases-${this.testPlan.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     }
   }
 }
@@ -345,14 +445,14 @@ export default {
 
 <style scoped>
 .test-plan-detail {
-  padding: 20px 0;
+  padding: 0;
 }
 
 .detail-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 30px;
+  margin-bottom: 60px;
   gap: 20px;
 }
 
@@ -386,20 +486,16 @@ export default {
 }
 
 .description-section {
-  margin-bottom: 30px;
+  margin-bottom: 50px;
 }
 
-.description-section h3 {
-  margin: 0 0 15px 0;
-  color: #2c3e50;
-  font-size: 18px;
-  font-weight: 600;
-}
+
 
 .description-section p {
   color: #6c757d;
   line-height: 1.6;
   margin: 0;
+  text-align: center !important;
 }
 
 /* Tags styles removed */
@@ -416,6 +512,12 @@ export default {
   gap: 20px;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .section-header h3 {
   margin: 0;
   color: #2c3e50;
@@ -426,6 +528,70 @@ export default {
 .case-filters {
   flex: 1;
   max-width: 300px;
+}
+
+/* Bulk actions removed - moved to header */
+
+.select-all-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #ff6b35;
+  background-color: white !important;
+  border: 1px solid #111111 !important;
+  border-radius: 3px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  position: relative;
+}
+
+.checkbox-input:checked {
+  background-color: #ff6b35 !important;
+  border-color: #ff6b35 !important;
+}
+
+.checkbox-input:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.checkbox-text {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.selected-count {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.export-section {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
 }
 
 .test-cases-list {
@@ -451,8 +617,13 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  cursor: pointer;
   background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+}
+
+.case-checkbox {
+  margin-right: 15px;
 }
 
 .case-title {
@@ -509,8 +680,6 @@ export default {
   margin-bottom: 20px;
 }
 
-.case-description h5,
-.case-preconditions h5,
 .case-steps h5 {
   margin: 0 0 10px 0;
   color: #2c3e50;
@@ -525,6 +694,7 @@ export default {
   color: #6c757d;
   line-height: 1.6;
   margin: 0;
+  text-align: left;
 }
 
 .steps-table {
@@ -535,7 +705,7 @@ export default {
 
 .table-header {
   display: grid;
-  grid-template-columns: 80px 1fr 1fr;
+  grid-template-columns: 80px 1fr 1fr 1fr;
   background-color: #f8f9fa;
   font-weight: 600;
   color: #2c3e50;
@@ -553,7 +723,7 @@ export default {
 
 .step-row {
   display: grid;
-  grid-template-columns: 80px 1fr 1fr;
+  grid-template-columns: 80px 1fr 1fr 1fr;
   border-top: 1px solid #e9ecef;
 }
 
@@ -663,7 +833,7 @@ export default {
 
 .step-input-row {
   display: grid;
-  grid-template-columns: 40px 1fr 1fr 40px;
+  grid-template-columns: 40px 1fr 1fr 1fr 40px;
   gap: 10px;
   align-items: center;
   margin-bottom: 10px;
@@ -726,6 +896,16 @@ export default {
   .step-input-row {
     grid-template-columns: 1fr;
     gap: 5px;
+  }
+  
+  .header-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .export-section {
+    justify-content: center;
   }
 }
 </style> 
