@@ -249,7 +249,7 @@ export default {
 
 <style scoped>
 .all-test-plans {
-  padding: 20px 0;
+  padding: 0;
 }
 
 .page-header {
