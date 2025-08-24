@@ -394,6 +394,14 @@ export default {
         this.selectedCases = []
       }
     },
+    getUserJiraId() {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.jiraId || '';
+      }
+      return '';
+    },
     exportToCSV() {
       // If no test cases are selected, export all test cases
       // If test cases are selected, export only the selected ones
@@ -418,7 +426,7 @@ export default {
             `"${step.input || ''}"`, // Input
             `"${step.expectedResult}"`, // Expected result
             '', // components (empty for now)
-            'USER-JIRA-ID', // assigneeId (user's Jira ID - to be replaced with actual user data)
+            this.getUserJiraId(), // assigneeId (user's Jira ID)
             '', // textCfValue (empty for now)
             this.testPlan.id, // requirements (Jira Ticket ID)
             stepIndex === 0 ? `"${testCase.preconditions || ''}"` : '' // preconditions (only in first row)
